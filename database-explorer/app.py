@@ -2,7 +2,7 @@
 import os
 from dotenv import load_dotenv
 import psycopg2
-from query import query_output_server, query_output_ui
+import query
 from shiny import App, reactive, ui
 
 load_dotenv()
@@ -26,10 +26,15 @@ def get_connection():
 
 con = get_connection()
 
+with con.cursor() as cur:
+    cur.execute("SELECT * FROM public.clone_exis_end_to_end LIMIT 1")
+    columns = [desc[0] for desc in cur.description]
+
 app_ui = ui.page_sidebar(
     ui.sidebar(
-        ui.input_action_button("add_query", "Add Query", class_="btn btn-primary"),
-        ui.input_action_button("show_meta", "Show Metadata", class_="btn btn-secondary"),
+        ui.input_action_button("clone_eis_end_to_end", "CLONE EIS E2E", class_="btn btn-info"),
+        ui.input_action_button("sbc_geneious_seq", "SBC GEN SEQ", class_="btn btn-primary"),
+        ui.input_action_button("sbc_tap_dev", "SBC TAP DEV", class_="btn btn-secondary"),
         ui.markdown(
             """
             This app lets you explore a dataset using SQL and PostgreSQL.
@@ -37,7 +42,7 @@ app_ui = ui.page_sidebar(
         ),
     ),
     ui.tags.div(
-        query_output_ui("initial_query", remove_id="initial_query"),
+        query.query_output_ui_clone_eis_e2e("0", remove_id="0", columns=columns),
         id="module_container",
     ),
     title="PostgreSQL query explorer",
@@ -46,28 +51,79 @@ app_ui = ui.page_sidebar(
 
 def server(input, output, session):
     mod_counter = reactive.value(0)
-    query_output_server("initial_query", con=con, remove_id="initial_query")
+    query.query_output_server_clone_eis_e2e("0", con=con, remove_id="0", query="SELECT * FROM public.clone_exis_end_to_end")
 
     @reactive.effect
-    @reactive.event(input.add_query)
+    @reactive.event(input.clone_eis_end_to_end)
     def _():
-        counter = mod_counter.get() + 1
+        counter = mod_counter.get()
+        ui.remove_ui(selector=f"div#{counter}")
+        counter += 1
         mod_counter.set(counter)
-        id = f"query_{counter}"
-        ui.insert_ui(selector="#module_container", where="afterBegin", ui=query_output_ui(id, remove_id=id))
-        query_output_server(id, con=con, remove_id=id)
+        id = f"{counter}"
 
-    @reactive.effect
-    @reactive.event(input.show_meta)
-    def _():
-        counter = mod_counter.get() + 1
-        mod_counter.set(counter)
-        id = f"query_{counter}"
+        # Fetch column names
+        with con.cursor() as cur:
+            cur.execute("SELECT * FROM public.clone_exis_end_to_end LIMIT 1")
+            columns = [desc[0] for desc in cur.description]
+
+        # Insert card with column dropdown
         ui.insert_ui(
             selector="#module_container",
             where="afterBegin",
-            ui=query_output_ui(id, qry="SELECT * FROM information_schema.columns", remove_id=id),
+            ui=query.query_output_ui_clone_eis_e2e(id, remove_id=id, columns=columns),
         )
-        query_output_server(id, con=con, remove_id=id)
+
+        # Bind query server logic
+        query.query_output_server_clone_eis_e2e(id, con=con, remove_id=id, query="SELECT * FROM public.clone_exis_end_to_end")
+
+
+    @reactive.effect
+    @reactive.event(input.sbc_geneious_seq)
+    def _():
+        counter = mod_counter.get()
+        ui.remove_ui(selector=f"div#{counter}")
+        counter += 1
+        mod_counter.set(counter)
+        id = f"{counter}"
+
+        # Fetch column names
+        with con.cursor() as cur:
+            cur.execute("SELECT * FROM public.sbc_geneious_seq LIMIT 1")
+            columns = [desc[0] for desc in cur.description]
+
+        # Insert card with column dropdown
+        ui.insert_ui(
+            selector="#module_container",
+            where="afterBegin",
+            ui=query.query_output_ui_sbc_geneious_seq(id, remove_id=id, columns=columns),
+        )
+
+        # Bind query server logic
+        query.query_output_server_sbc_geneious_seq(id, con=con, remove_id=id, query="SELECT * FROM public.sbc_geneious_seq")
+
+    @reactive.effect
+    @reactive.event(input.sbc_tap_dev)
+    def _():
+        counter = mod_counter.get()
+        ui.remove_ui(selector=f"div#{counter}")
+        counter += 1
+        mod_counter.set(counter)
+        id = f"{counter}"
+
+        # Fetch column names
+        with con.cursor() as cur:
+            cur.execute("SELECT * FROM public.sbc_tap_dev LIMIT 1")
+            columns = [desc[0] for desc in cur.description]
+
+        # Insert card with column dropdown
+        ui.insert_ui(
+            selector="#module_container",
+            where="afterBegin",
+            ui=query.query_output_ui_sbc_tap_dev(id, remove_id=id, columns=columns),
+        )
+
+        # Bind query server logic
+        query.query_output_server_sbc_tap_dev(id, con=con, remove_id=id, query="SELECT * FROM public.sbc_tap_dev")
 
 app = App(app_ui, server)
